@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RKE2 Worker Autoscaler</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0f;
+            min-height: 100vh;
+            color: #fff;
+            line-height: 1.6;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 24px;
+            padding: 24px;
+            max-width: 1600px;
+            margin: 0 auto;
+            min-height: 100vh;
+        }
+        .card {
+            background: linear-gradient(145deg, rgba(30,30,45,0.8) 0%, rgba(20,20,30,0.9) 100%);
+            border-radius: 24px;
+            padding: 28px;
+            border: 1px solid rgba(255,255,255,0.06);
+            backdrop-filter: blur(20px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .card-title svg {
+            width: 24px;
+            height: 24px;
+            color: #60a5fa;
+        }
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 12px;
+            border: none;
+            background: rgba(255,255,255,0.05);
+            color: #888;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        .btn-icon:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+        }
+        .btn-icon.logout:hover {
+            background: rgba(239,68,68,0.2);
+            color: #ef4444;
+        }
+
+        /* Worker Counter */
+        .worker-counter {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f1f33 100%);
+            border-radius: 20px;
+            padding: 32px;
+            text-align: center;
+            margin-bottom: 24px;
+            border: 1px solid rgba(96,165,250,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        .worker-counter::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(96,165,250,0.1) 0%, transparent 50%);
+            pointer-events: none;
+        }
+        .worker-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #60a5fa;
+            margin-bottom: 8px;
+        }
+        .worker-value {
+            font-size: 5rem;
+            font-weight: 700;
+            color: #fff;
+            line-height: 1;
+            text-shadow: 0 0 40px rgba(96,165,250,0.3);
+        }
+        .worker-controls {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-top: 24px;
+        }
+        .btn-counter {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+            border: 2px solid rgba(96,165,250,0.4);
+            background: rgba(96,165,250,0.1);
+            color: #60a5fa;
+            font-size: 1.8rem;
+            cursor: pointer;
+            transition: all 0.25s;
+        }
+        .btn-counter:hover:not(:disabled) {
+            background: #60a5fa;
+            color: #0a0a0f;
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(96,165,250,0.4);
+        }
+        .btn-counter:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        /* Stats Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-item {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        .stat-label {
+            font-size: 0.7rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* Resource Config */
+        .section-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: #666;
+            margin-bottom: 16px;
+        }
+        .resource-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .resource-card {
+            background: rgba(255,255,255,0.03);
+            border-radius: 16px;
+            padding: 20px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .resource-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .resource-name {
+            font-size: 0.8rem;
+            color: #888;
+        }
+        .resource-value {
+            background: rgba(96,165,250,0.15);
+            color: #60a5fa;
+            padding: 4px 12px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        .resource-input {
+            width: 100%;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 12px 16px;
+            color: #fff;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .resource-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(96,165,250,0.1);
+        }
+        .resource-hint {
+            font-size: 0.7rem;
+            color: #555;
+            margin-top: 8px;
+            text-align: center;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        .btn-action {
+            padding: 16px 24px;
+            border-radius: 16px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-action.primary {
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(96,165,250,0.3);
+        }
+        .btn-action.primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(96,165,250,0.4);
+        }
+        .btn-action.secondary {
+            background: rgba(255,255,255,0.05);
+            color: #60a5fa;
+            border: 1px solid rgba(96,165,250,0.3);
+        }
+        .btn-action.secondary:hover:not(:disabled) {
+            background: rgba(96,165,250,0.1);
+            border-color: #60a5fa;
+        }
+        .btn-action:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-action svg {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Log Output */
+        .log-container {
+            background: rgba(0,0,0,0.3);
+            border-radius: 16px;
+            padding: 16px;
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            display: none;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .log-container.show {
+            display: block;
+        }
+        .log-container pre {
+            color: #a1a1aa;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        /* K8s Panel */
+        .k8s-summary {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .k8s-badge {
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .k8s-badge.ready {
+            background: rgba(34,197,94,0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34,197,94,0.3);
+        }
+        .k8s-badge.not-ready {
+            background: rgba(239,68,68,0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239,68,68,0.3);
+        }
+        .k8s-badge.error {
+            background: rgba(251,191,36,0.15);
+            color: #fbbf24;
+            border: 1px solid rgba(251,191,36,0.3);
+        }
+        .badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+        .badge-dot.ready { background: #22c55e; }
+        .badge-dot.not-ready { background: #ef4444; }
+
+        /* Nodes Table */
+        .nodes-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .nodes-table th {
+            text-align: left;
+            padding: 14px 16px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #666;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-weight: 600;
+        }
+        .nodes-table td {
+            padding: 16px;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+        }
+        .nodes-table tbody tr {
+            transition: background 0.2s;
+        }
+        .nodes-table tbody tr:hover {
+            background: rgba(255,255,255,0.02);
+        }
+        .nodes-table tbody tr:last-child td {
+            border-bottom: none;
+        }
+        .node-name {
+            color: #60a5fa;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+        }
+        .node-role {
+            display: inline-flex;
+            padding: 4px 10px;
+            border-radius: 8px;
+            font-size: 0.7rem;
+            background: rgba(255,255,255,0.08);
+            color: #a1a1aa;
+            margin-right: 6px;
+        }
+        .status-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+        .status-indicator.ready { background: #22c55e; box-shadow: 0 0 10px rgba(34,197,94,0.5); }
+        .status-indicator.not-ready { background: #ef4444; box-shadow: 0 0 10px rgba(239,68,68,0.5); }
+        .cell-mono {
+            font-family: 'JetBrains Mono', monospace;
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        /* Node Management */
+        .node-management {
+            margin-top: 28px;
+            padding-top: 24px;
+            border-top: 1px solid rgba(255,255,255,0.05);
+        }
+        .node-input-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .node-input {
+            flex: 1;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 14px 18px;
+            color: #fff;
+            font-size: 0.9rem;
+            font-family: 'JetBrains Mono', monospace;
+            transition: all 0.2s;
+        }
+        .node-input::placeholder {
+            color: #555;
+        }
+        .node-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(96,165,250,0.05);
+        }
+        .node-actions {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        .btn-node {
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-node svg { width: 16px; height: 16px; }
+        .btn-node.cordon { background: rgba(251,191,36,0.15); color: #fbbf24; border: 1px solid rgba(251,191,36,0.3); }
+        .btn-node.cordon:hover:not(:disabled) { background: rgba(251,191,36,0.25); }
+        .btn-node.drain { background: rgba(239,68,68,0.15); color: #ef4444; border: 1px solid rgba(239,68,68,0.3); }
+        .btn-node.drain:hover:not(:disabled) { background: rgba(239,68,68,0.25); }
+        .btn-node.delete { background: rgba(239,68,68,0.25); color: #fca5a5; border: 1px solid rgba(239,68,68,0.4); }
+        .btn-node.delete:hover:not(:disabled) { background: rgba(239,68,68,0.35); }
+        .btn-node.check { background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+        .btn-node.check:hover:not(:disabled) { background: rgba(96,165,250,0.25); }
+        .btn-node:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* Pods Section */
+        .pods-section {
+            margin-top: 16px;
+            display: none;
+        }
+        .pods-section.show { display: block; }
+        .pods-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            margin-top: 12px;
+        }
+        .pods-table th {
+            text-align: left;
+            padding: 10px 12px;
+            color: #666;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .pods-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            color: #a1a1aa;
+        }
+
+        /* Drain Log */
+        .drain-log {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 16px;
+            max-height: 150px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            display: none;
+        }
+        .drain-log.show { display: block; }
+        .drain-log pre { color: #a1a1aa; }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #555;
+        }
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 16px;
+            color: #444;
+        }
+
+        /* Login Overlay */
+        #loginOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: #0a0a0f;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .login-card {
+            background: linear-gradient(145deg, rgba(30,30,45,0.9) 0%, rgba(20,20,30,0.95) 100%);
+            border-radius: 28px;
+            padding: 48px;
+            border: 1px solid rgba(255,255,255,0.08);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+        }
+        .login-logo {
+            width: 64px;
+            height: 64px;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            box-shadow: 0 8px 32px rgba(96,165,250,0.3);
+        }
+        .login-logo svg { width: 36px; height: 36px; color: #fff; }
+        .login-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #fff;
+            margin-bottom: 8px;
+        }
+        .login-subtitle {
+            color: #666;
+            margin-bottom: 32px;
+            font-size: 0.9rem;
+        }
+        .login-input {
+            width: 100%;
+            padding: 16px 20px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 1rem;
+            text-align: center;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+        .login-input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(96,165,250,0.1);
+        }
+        .login-btn {
+            width: 100%;
+            padding: 16px;
+            border-radius: 14px;
+            border: none;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 15px rgba(96,165,250,0.3);
+        }
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(96,165,250,0.4);
+        }
+        .login-error {
+            color: #ef4444;
+            margin-top: 16px;
+            font-size: 0.85rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Login Overlay -->
+    <div id="loginOverlay">
+        <div class="login-card">
+            <div class="login-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <div class="login-title">RKE2 Autoscaler</div>
+            <div class="login-subtitle">Enter dashboard password</div>
+            <input type="password" id="loginPassword" class="login-input" placeholder="••••••••">
+            <button class="login-btn" onclick="doLogin()">Sign In</button>
+            <div id="loginError" class="login-error"></div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = localStorage.getItem('authToken') || '';
+        let lastActivity = Date.now();
+        const AUTO_LOGOUT_MS = 5 * 60 * 1000;
+
+        function resetActivity() { lastActivity = Date.now(); }
+
+        function checkAutoLogout() {
+            if (authToken && Date.now() - lastActivity > AUTO_LOGOUT_MS) {
+                doLogout();
+                return;
+            }
+            setTimeout(checkAutoLogout, 10000);
+        }
+
+        function doLogout() {
+            authToken = '';
+            localStorage.removeItem('authToken');
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+
+        ['click', 'keypress', 'mousemove', 'scroll'].forEach(evt => {
+            document.addEventListener(evt, resetActivity, {passive: true});
+        });
+
+        async function doLogin() {
+            const password = document.getElementById('loginPassword').value;
+            const errorDiv = document.getElementById('loginError');
+            try {
+                const res = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({password: password})
+                });
+                const data = await res.json();
+                if (data.success && data.token) {
+                    authToken = data.token;
+                    localStorage.setItem('authToken', authToken);
+                    document.getElementById('loginOverlay').style.display = 'none';
+                    resetActivity();
+                    checkAutoLogout();
+                    fetchStatus();
+                } else {
+                    errorDiv.textContent = 'Invalid password';
+                    errorDiv.style.display = 'block';
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Login failed: ' + e;
+                errorDiv.style.display = 'block';
+            }
+        }
+
+        document.getElementById('loginPassword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') doLogin();
+        });
+
+        function getAuthHeaders() {
+            return authToken ? {'Authorization': 'Bearer ' + authToken} : {};
+        }
+
+        if (authToken) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            checkAutoLogout();
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+    </script>
+
+    <div class="dashboard">
+        <!-- Left Panel -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2"/>
+                        <path d="M12 8v8m-4-4h8"/>
+                    </svg>
+                    Worker Nodes
+                </div>
+            </div>
+
+            <div class="worker-counter">
+                <div class="worker-label">Current Workers</div>
+                <div class="worker-value" id="workerCount">-</div>
+                <div class="worker-controls">
+                    <button class="btn-counter" id="btnMinus" onclick="changeWorker(-1)">−</button>
+                    <button class="btn-counter" id="btnPlus" onclick="changeWorker(1)">+</button>
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value" id="configCount">-</div>
+                    <div class="stat-label">Terraform</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="deployedCount">-</div>
+                    <div class="stat-label">Deployed</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="k8sCount">-</div>
+                    <div class="stat-label">K8s Nodes</div>
+                </div>
+            </div>
+
+            <div class="section-label">New Worker Resources</div>
+            <div class="resource-grid">
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <span class="resource-name">CPU Cores</span>
+                    </div>
+                    <input type="number" class="resource-input" id="inputCpu" min="1" max="32" value="2">
+                    <div class="resource-hint">1-32 cores</div>
+                </div>
+                <div class="resource-card">
+                    <div class="resource-header">
+                        <span class="resource-name">Memory</span>
+                    </div>
+                    <input type="number" class="resource-input" id="inputMemory" min="512" max="65536" step="512" value="4096">
+                    <div class="resource-hint">MB (512-65536)</div>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button class="btn-action secondary" id="btnPlan" onclick="runPlan()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>
+                    </svg>
+                    Plan
+                </button>
+                <button class="btn-action primary" id="btnApply" onclick="runApply()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                    Apply
+                </button>
+            </div>
+
+            <div class="log-container" id="logContainer">
+                <pre id="logOutput"></pre>
+            </div>
+        </div>
+
+        <!-- Right Panel -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M12 6v6l4 2"/>
+                    </svg>
+                    Kubernetes Cluster
+                </div>
+                <div class="header-actions">
+                    <button class="btn-icon" onclick="fetchStatus()" title="Refresh">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M23 4v6h-6M1 20v-6h6"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                    </button>
+                    <button class="btn-icon logout" onclick="doLogout()" title="Logout">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                            <polyline points="16,17 21,12 16,7"/>
+                            <line x1="21" y1="12" x2="9" y2="12"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <div class="k8s-summary">
+                <div class="k8s-badge ready">
+                    <span class="badge-dot ready"></span>
+                    <span id="k8sReady">Ready: -</span>
+                </div>
+                <div class="k8s-badge not-ready">
+                    <span class="badge-dot not-ready"></span>
+                    <span id="k8sNotReady">NotReady: -</span>
+                </div>
+            </div>
+
+            <div id="k8sError" class="empty-state" style="display: none;"></div>
+
+            <table class="nodes-table" id="nodesTable">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Roles</th>
+                        <th>Status</th>
+                        <th>CPU</th>
+                        <th>Memory</th>
+                        <th>Version</th>
+                        <th>Uptime</th>
+                    </tr>
+                </thead>
+                <tbody id="nodesBody">
+                    <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+                </tbody>
+            </table>
+
+            <div class="node-management">
+                <div class="section-label">Node Management</div>
+                <div class="node-input-row">
+                    <input type="text" class="node-input" id="inputNodeName" placeholder="rke2-worker-xx">
+                </div>
+                <div class="node-actions">
+                    <button class="btn-node cordon" id="btnCordon" onclick="runCordon()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="4" y1="4" x2="20" y2="20"/>
+                        </svg>
+                        Cordon
+                    </button>
+                    <button class="btn-node drain" id="btnDrainNode" onclick="runDrain()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+                        </svg>
+                        Drain
+                    </button>
+                    <button class="btn-node check" id="btnCheckPods" onclick="runCheckPods()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="M21 21l-4.35-4.35"/>
+                        </svg>
+                        Check Pods
+                    </button>
+                    <button class="btn-node delete" id="btnDeleteNode" onclick="runDelete()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="3,6 5,6 21,6"/>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        </svg>
+                        Delete
+                    </button>
+                </div>
+
+                <div id="podsSection" class="pods-section">
+                    <table class="pods-table">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Namespace</th>
+                                <th>Ready</th>
+                                <th>Status</th>
+                                <th>Restarts</th>
+                                <th>Age</th>
+                            </tr>
+                        </thead>
+                        <tbody id="podsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="drain-log" id="drainLog">
+                    <pre id="drainOutput"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentWorkerCount = 0, currentCpu = 2, currentMemory = 4096;
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch('/api/status', {headers: getAuthHeaders()});
+                if (res.status === 401) {
+                    authToken = '';
+                    localStorage.removeItem('authToken');
+                    document.getElementById('loginOverlay').style.display = 'flex';
+                    return;
+                }
+                const data = await res.json();
+                currentWorkerCount = data.worker_count;
+                currentCpu = data.worker_cpu || 2;
+                currentMemory = data.worker_memory || 4096;
+
+                document.getElementById('workerCount').textContent = data.worker_count;
+                document.getElementById('configCount').textContent = data.worker_count;
+                document.getElementById('deployedCount').textContent = data.deployed_workers;
+                document.getElementById('k8sCount').textContent = data.k8s_enabled ? (data.k8s_nodes?.length || 0) : 'N/A';
+                document.getElementById('inputCpu').value = currentCpu;
+                document.getElementById('inputMemory').value = currentMemory;
+
+                if (data.k8s_enabled && data.k8s_nodes) {
+                    updateK8sNodes(data.k8s_nodes);
+                    document.getElementById('k8sError').style.display = 'none';
+                    document.getElementById('nodesTable').style.display = 'table';
+                } else {
+                    document.getElementById('nodesBody').innerHTML = '<tr><td colspan="6" class="empty-state">kubeconfig not found</td></tr>';
+                    document.getElementById('k8sReady').textContent = 'Ready: -';
+                    document.getElementById('k8sNotReady').textContent = 'NotReady: -';
+                }
+                if (data.k8s_error) {
+                    document.getElementById('k8sError').textContent = data.k8s_error;
+                    document.getElementById('k8sError').style.display = 'block';
+                    document.getElementById('nodesTable').style.display = 'none';
+                }
+            } catch (e) { console.error('Failed to fetch status:', e); }
+        }
+
+        function updateK8sNodes(nodes) {
+            let ready = 0, notReady = 0;
+            const tbody = document.getElementById('nodesBody');
+            tbody.innerHTML = nodes.map(node => {
+                const statusClass = node.status === 'True' ? 'ready' : 'not-ready';
+                if (node.status === 'True') ready++; else notReady++;
+                const roles = node.roles.map(r => `<span class="node-role">${r}</span>`).join('');
+                return `<tr>
+                    <td class="node-name">${node.name}</td>
+                    <td>${roles || '-'}</td>
+                    <td><div class="status-cell"><span class="status-indicator ${statusClass}"></span>${node.status === 'True' ? 'Ready' : 'NotReady'}</div></td>
+                    <td class="cell-mono">${node.cpu || '-'}</td>
+                    <td class="cell-mono">${node.memory || '-'}</td>
+                    <td class="cell-mono">${node.version || '-'}</td>
+                    <td class="cell-mono">${node.uptime || '-'}</td>
+                </tr>`;
+            }).join('');
+            document.getElementById('k8sReady').textContent = `Ready: ${ready}`;
+            document.getElementById('k8sNotReady').textContent = `NotReady: ${notReady}`;
+        }
+
+        async function changeWorker(delta) {
+            const newCount = currentWorkerCount + delta;
+            if (newCount < 0 || newCount > 10) return;
+            try {
+                const res = await fetch('/api/worker-count', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({worker_count: newCount})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    currentWorkerCount = newCount;
+                    document.getElementById('workerCount').textContent = newCount;
+                    document.getElementById('configCount').textContent = newCount;
+                }
+            } catch (e) { console.error('Failed to update worker count:', e); }
+        }
+
+        async function updateResource(resource, value) {
+            const endpoint = resource === 'cpu' ? '/api/worker-cpu' : '/api/worker-memory';
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify(resource === 'cpu' ? {worker_cpu: value} : {worker_memory: value})
+                });
+                if (res.ok) {
+                    if (resource === 'cpu') currentCpu = value; else currentMemory = value;
+                    window.pendingPlan = false;
+                    document.getElementById('btnPlan').textContent = 'Plan';
+                }
+            } catch (e) { console.error('Failed to update resource:', e); }
+        }
+
+        document.getElementById('inputCpu').addEventListener('blur', function() {
+            const val = parseInt(this.value);
+            if (val >= 1 && val <= 32 && val !== currentCpu) updateResource('cpu', val);
+            else this.value = currentCpu;
+        });
+        document.getElementById('inputCpu').addEventListener('keypress', function(e) { if (e.key === 'Enter') this.blur(); });
+        document.getElementById('inputMemory').addEventListener('blur', function() {
+            const val = parseInt(this.value);
+            if (val >= 512 && val <= 65536 && val !== currentMemory) updateResource('memory', val);
+            else this.value = currentMemory;
+        });
+        document.getElementById('inputMemory').addEventListener('keypress', function(e) { if (e.key === 'Enter') this.blur(); });
+
+        async function runPlan() {
+            const btnPlan = document.getElementById('btnPlan');
+            btnPlan.disabled = true; btnPlan.textContent = 'Planning...';
+            const logContainer = document.getElementById('logContainer');
+            const logOutput = document.getElementById('logOutput');
+            logContainer.classList.add('show');
+            logOutput.textContent = 'Running terraform plan...\n';
+            try {
+                const planRes = await fetch('/api/terraform/plan', {method: 'POST', headers: getAuthHeaders()});
+                const planData = await planRes.json();
+                logOutput.textContent = planData.output;
+                if (planData.success) {
+                    btnPlan.textContent = 'Plan Ready';
+                    document.getElementById('btnApply').disabled = false;
+                    window.pendingPlan = true;
+                } else {
+                    btnPlan.textContent = 'Plan Failed';
+                    btnPlan.disabled = false;
+                }
+            } catch (e) { logOutput.textContent = 'Error: ' + e; btnPlan.textContent = 'Plan'; btnPlan.disabled = false; }
+        }
+
+        async function runApply() {
+            const btnPlan = document.getElementById('btnPlan');
+            const btnApply = document.getElementById('btnApply');
+            const logContainer = document.getElementById('logContainer');
+            const logOutput = document.getElementById('logOutput');
+            if (!window.pendingPlan) {
+                logContainer.classList.add('show');
+                logOutput.textContent = 'Running terraform plan first...\n';
+                const planRes = await fetch('/api/terraform/plan', {method: 'POST', headers: getAuthHeaders()});
+                const planData = await planRes.json();
+                logOutput.textContent = planData.output;
+                if (!planData.success) { btnApply.textContent = 'Plan Failed'; return; }
+            }
+            btnApply.disabled = true; btnApply.textContent = 'Applying...';
+            window.pendingPlan = false;
+            try {
+                const targetCount = parseInt(document.getElementById('workerCount').textContent);
+                logOutput.textContent += '\n\nScaling worker count to ' + targetCount + '...\n';
+                const applyRes = await fetch('/api/scale-down', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({worker_count: targetCount})
+                });
+                const applyData = await applyRes.json();
+                if (applyData.action === 'scale_down' && applyData.k8s_drain) {
+                    logOutput.textContent += '\n--- K8s Drain Results ---\n';
+                    if (applyData.workers_removed) logOutput.textContent += 'Workers removed: ' + applyData.workers_removed.join(', ') + '\n';
+                    for (const r of applyData.k8s_drain.results || []) {
+                        logOutput.textContent += '\n' + r.worker + ':\n';
+                        for (const step of r.steps || []) logOutput.textContent += '  ' + (step.success ? '✓' : '✗') + ' ' + step.action + '\n';
+                    }
+                }
+                logOutput.textContent += '\n--- Terraform Output ---\n' + (applyData.terraform?.output || applyData.output || '');
+                if (applyData.success || applyData.terraform?.success) {
+                    btnApply.textContent = 'Applied!';
+                    btnPlan.textContent = 'Plan';
+                    btnPlan.disabled = false;
+                    setTimeout(() => { btnApply.textContent = 'Apply'; btnApply.disabled = false; fetchStatus(); }, 2000);
+                } else {
+                    btnApply.textContent = 'Failed - Retry';
+                    btnApply.disabled = false;
+                }
+            } catch (e) { logOutput.textContent += '\nError: ' + e; btnApply.textContent = 'Retry'; btnApply.disabled = false; }
+        }
+
+        async function runCordon() {
+            const nodeName = document.getElementById('inputNodeName').value.trim();
+            const btn = document.getElementById('btnCordon');
+            const logDiv = document.getElementById('drainLog');
+            const logOutput = document.getElementById('drainOutput');
+            if (!nodeName) { alert('Please enter node name'); return; }
+            btn.disabled = true; btn.textContent = '...';
+            logDiv.classList.add('show');
+            logOutput.textContent = `Cordon node: ${nodeName}\n----------------------------------------\n`;
+            try {
+                const res = await fetch('/api/k8s/cordon', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({node_name: nodeName})
+                });
+                const data = await res.json();
+                logOutput.textContent += data.success ? '✓ Node cordoned\n' : '✗ Failed: ' + (data.error || data.output) + '\n';
+                btn.textContent = 'Cordon'; btn.disabled = false;
+            } catch (e) { logOutput.textContent += '\nError: ' + e + '\n'; btn.textContent = 'Cordon'; btn.disabled = false; }
+        }
+
+        async function runDrain() {
+            const nodeName = document.getElementById('inputNodeName').value.trim();
+            const btn = document.getElementById('btnDrainNode');
+            if (!nodeName) { alert('Please enter node name'); return; }
+            if (!confirm('Drain node "' + nodeName + '"?\n\nThis will evict all pods from the node.')) return;
+            btn.disabled = true; btn.textContent = 'Draining...';
+            const logDiv = document.getElementById('drainLog');
+            const logOutput = document.getElementById('drainOutput');
+            logDiv.classList.add('show');
+            logOutput.textContent = `Draining node: ${nodeName}\n----------------------------------------\n`;
+            try {
+                const res = await fetch('/api/k8s/drain', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({node_name: nodeName})
+                });
+                const data = await res.json();
+                logOutput.textContent += data.success ? '✓ Node drained successfully!\n' : '⚠ Drain completed with warnings:\n' + (data.output || '') + '\n';
+                btn.textContent = 'Drain'; btn.disabled = false;
+                fetchStatus();
+            } catch (e) { logOutput.textContent += '\nError: ' + e + '\n'; btn.textContent = 'Drain'; btn.disabled = false; }
+        }
+
+        async function runDelete() {
+            const nodeName = document.getElementById('inputNodeName').value.trim();
+            const btn = document.getElementById('btnDeleteNode');
+            if (!nodeName) { alert('Please enter node name'); return; }
+            if (!confirm('Delete node "' + nodeName + '" from K8s cluster?\n\nWARNING: This only removes the node from Kubernetes. The VM in Proxmox is NOT affected.')) return;
+            btn.disabled = true; btn.textContent = '...';
+            const logDiv = document.getElementById('drainLog');
+            const logOutput = document.getElementById('drainOutput');
+            logDiv.classList.add('show');
+            logOutput.textContent = `Deleting node from K8s: ${nodeName}\n----------------------------------------\n`;
+            try {
+                const res = await fetch('/api/k8s/delete-node', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({node_name: nodeName})
+                });
+                const data = await res.json();
+                if (data.success) {
+                    logOutput.textContent += '✓ Node deleted from K8s cluster!\n';
+                    document.getElementById('inputNodeName').value = '';
+                    setTimeout(() => fetchStatus(), 2000);
+                } else logOutput.textContent += '✗ Failed: ' + (data.error || data.output) + '\n';
+                btn.textContent = 'Delete'; btn.disabled = false;
+            } catch (e) { logOutput.textContent += '\nError: ' + e + '\n'; btn.textContent = 'Delete'; btn.disabled = false; }
+        }
+
+        async function runCheckPods() {
+            const nodeName = document.getElementById('inputNodeName').value.trim();
+            const podsSection = document.getElementById('podsSection');
+            const podsBody = document.getElementById('podsBody');
+            if (!nodeName) { alert('Please enter node name'); return; }
+            podsSection.classList.add('show');
+            podsBody.innerHTML = '<tr><td colspan="6" class="empty-state">Loading pods...</td></tr>';
+            try {
+                const res = await fetch('/api/k8s/pods?node_name=' + encodeURIComponent(nodeName), {headers: getAuthHeaders()});
+                const data = await res.json();
+                if (data.success && data.pods && data.pods.length > 0) {
+                    podsBody.innerHTML = data.pods.map(pod => `<tr>
+                        <td>${pod.name}</td><td>${pod.namespace}</td><td>${pod.ready}</td><td>${pod.status}</td><td>${pod.restarts}</td><td>${pod.age}</td>
+                    </tr>`).join('');
+                } else if (data.success && data.count === 0) {
+                    podsBody.innerHTML = '<tr><td colspan="6" class="empty-state">No pods on this node</td></tr>';
+                } else {
+                    podsBody.innerHTML = '<tr><td colspan="6" class="empty-state">Error: ' + (data.error || 'Unknown error') + '</td></tr>';
+                }
+            } catch (e) { podsBody.innerHTML = '<tr><td colspan="6" class="empty-state">Error: ' + e + '</td></tr>'; }
+        }
+
+        fetchStatus();
+        setInterval(fetchStatus, 15000);
+    </script>
+<div style="position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid rgba(255,255,255,0.05); padding: 16px; text-align: center; background: linear-gradient(90deg, rgba(80,10,30,0.7) 0%, rgba(80,10,30,0.7) 20%, rgba(0,50,100,0.7) 20%, rgba(0,50,100,0.7) 40%, rgba(80,10,30,0.7) 40%, rgba(80,10,30,0.7) 60%, rgba(0,50,100,0.7) 60%, rgba(0,50,100,0.7) 80%, rgba(80,10,30,0.7) 80%, rgba(80,10,30,0.7) 100%);">
+        <span style="color: #FFD700; font-size: 0.75rem; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">Created by <a href="https://github.com/yoniys94" target="_blank" style="color: #FFD700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.003.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg><strong style="font-weight: 600;">YYS</strong></a></span>
+    </div>
+
+    <script>
+        // Push content up to account for fixed footer
+        document.querySelector('.dashboard').style.paddingBottom = '60px';
+    </script>
+</body>
+</html>

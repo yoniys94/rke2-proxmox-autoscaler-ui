@@ -1,0 +1,20 @@
+services:
+  rke2-autoscaler:
+    build: .
+    container_name: rke2-autoscaler
+    ports:
+      - "5000:5000"
+    volumes:
+      # Use current directory for all configs
+      - ./.env:/app/.env
+      - ./kubeconfig:/app/kubeconfig
+      - .:/app/terraform
+    environment:
+      - FLASK_ENV=production
+      - TERRAFORM_DIR=/app/terraform
+      - ENV_FILE=/app/.env
+      - KUBECONFIG_FILE=/app/kubeconfig
+    restart: unless-stopped
+    network_mode: bridge
+    extra_hosts:
+      - "ainopg-drc.ainosi.com:202.129.187.147"

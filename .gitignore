@@ -1,0 +1,41 @@
+# Environment
+.env
+
+# Terraform state (should persist on host)
+*.tfstate
+*.tfstate.*
+
+# Binary state backup
+*.tfstate.backup
+
+# Terraform provider cache
+.terraform/
+.terraform.lock.hcl
+
+# Kubernetes config
+kubeconfig
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Virtual environment
+venv/
+
+# Claude data
+.claude/
+
+# Log files
+*.log
+*.log-bak
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RKE2 Autoscaler - Setup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: #0a0a0f;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            color: #fff;
+            padding: 24px;
+        }
+        .setup-card {
+            background: linear-gradient(145deg, rgba(30,30,45,0.9) 0%, rgba(20,20,30,0.95) 100%);
+            border-radius: 28px;
+            padding: 48px;
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+            max-width: 640px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+            margin-top: 20px;
+        }
+        .setup-header {
+            text-align: center;
+            margin-bottom: 36px;
+        }
+        .setup-logo {
+            width: 72px;
+            height: 72px;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            border-radius: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            box-shadow: 0 8px 32px rgba(96,165,250,0.3);
+        }
+        .setup-logo svg { width: 40px; height: 40px; color: #fff; }
+        .setup-title { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 8px; }
+        .setup-subtitle { color: #666; font-size: 0.95rem; }
+
+        .section-group {
+            margin-bottom: 28px;
+        }
+        .section-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #60a5fa;
+            margin-bottom: 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(96,165,250,0.2);
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #a1a1aa;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+        .form-hint {
+            font-size: 0.75rem;
+            color: #555;
+            margin-top: 6px;
+            padding-left: 4px;
+        }
+        .form-input, .form-textarea, .form-select {
+            width: 100%;
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: rgba(255,255,255,0.05);
+            color: #fff;
+            font-size: 0.95rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+        .form-input:focus, .form-textarea:focus, .form-select:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(96,165,250,0.08);
+            box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
+        }
+        .form-input::placeholder, .form-textarea::placeholder { color: #555; }
+        .form-textarea { min-height: 120px; resize: vertical; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding: 16px; }
+        .form-select {
+            cursor: pointer;
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23666' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 16px center;
+            padding-right: 40px;
+        }
+        .form-select option { background: #1a1a2e; color: #fff; }
+
+        .node-template-group {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+        .node-template-group h4 {
+            color: #fff;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .node-template-group h4 .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #22c55e;
+        }
+        .node-template-group h4 .status-dot.offline { background: #ef4444; }
+
+        .btn-submit {
+            width: 100%;
+            padding: 18px;
+            border-radius: 16px;
+            font-size: 1rem;
+            font-weight: 600;
+            background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            transition: all 0.25s;
+            box-shadow: 0 4px 15px rgba(96,165,250,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 32px;
+        }
+        .btn-submit:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(96,165,250,0.4);
+        }
+        .btn-submit:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-submit svg { width: 20px; height: 20px; }
+
+        .btn-fetch {
+            padding: 10px 20px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            background: rgba(96,165,250,0.15);
+            color: #60a5fa;
+            border: 1px solid rgba(96,165,250,0.3);
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .btn-fetch:hover:not(:disabled) {
+            background: rgba(96,165,250,0.25);
+        }
+        .btn-fetch:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+        .btn-fetch svg { width: 16px; height: 16px; }
+
+        .msg-box {
+            border-radius: 14px;
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            font-size: 0.9rem;
+            display: none;
+        }
+        .msg-box.error {
+            background: rgba(239,68,68,0.12);
+            border: 1px solid rgba(239,68,68,0.3);
+            color: #fca5a5;
+        }
+        .msg-box.success {
+            background: rgba(34,197,94,0.12);
+            border: 1px solid rgba(34,197,94,0.3);
+            color: #86efac;
+        }
+        .msg-box.info {
+            background: rgba(96,165,250,0.12);
+            border: 1px solid rgba(96,165,250,0.3);
+            color: #93c5fd;
+        }
+
+        .nodes-container {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 16px;
+            padding-right: 8px;
+        }
+        .nodes-container::-webkit-scrollbar {
+            width: 6px;
+        }
+        .nodes-container::-webkit-scrollbar-track {
+            background: rgba(255,255,255,0.05);
+            border-radius: 3px;
+        }
+        .nodes-container::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.15);
+            border-radius: 3px;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 32px;
+            color: #666;
+        }
+        .empty-state svg {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-card">
+        <div class="setup-header">
+            <div class="setup-logo">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                    <path d="M2 17l10 5 10-5"/>
+                    <path d="M2 12l10 5 10-5"/>
+                </svg>
+            </div>
+            <div class="setup-title">RKE2 Autoscaler</div>
+            <div class="setup-subtitle">Setup Configuration</div>
+        </div>
+
+        <div id="errorMsg" class="msg-box error"></div>
+        <div id="successMsg" class="msg-box success"></div>
+        <div id="infoMsg" class="msg-box info"></div>
+
+        <form id="setupForm">
+            <div class="section-group">
+                <div class="section-title">Proxmox Connection</div>
+
+                <div class="form-group">
+                    <label class="form-label">API Endpoint</label>
+                    <input type="text" class="form-input" id="proxmox_endpoint" value="https://10.12.0.1:8006/api2/json/" placeholder="https://192.168.1.1:8006/api2/json/">
+                    <div class="form-hint">Format: https://IP:PORT/api2/json/</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-input" id="proxmox_username" value="root@pam" placeholder="root@pam">
+                    <div class="form-hint">Usually root@pam for local authentication</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-input" id="proxmox_password" placeholder="Enter password">
+                    <div class="form-hint">Leave empty to keep current password</div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">VM Root Password</label>
+                    <input type="password" class="form-input" id="vm_password" placeholder="Password for VM root user (cloud-init)">
+                    <div class="form-hint">Cloud-init will use this password for VM root account</div>
+                </div>
+
+                <div class="form-group" style="margin-top: 20px;">
+                    <button type="button" class="btn-fetch" id="btnFetchNodes">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+                            <path d="M21 3v5h-5"/>
+                        </svg>
+                        Fetch Nodes & Templates
+                    </button>
+                    <div class="form-hint">Click to load available nodes and templates from Proxmox</div>
+                </div>
+            </div>
+
+            <div class="section-group" id="nodesSection" style="display: none;">
+                <div class="section-title">Node Template Assignment</div>
+                <div id="nodesContainer" class="nodes-container"></div>
+            </div>
+
+            <div class="section-group">
+                <div class="section-title">Dashboard Access</div>
+
+                <div class="form-group">
+                    <label class="form-label">Dashboard Password</label>
+                    <input type="password" class="form-input" id="dashboard_password" placeholder="Set a password for dashboard access">
+                    <div class="form-hint">This password will be used to access the dashboard</div>
+                </div>
+            </div>
+
+            <div class="section-group">
+                <div class="section-title">Kubernetes Configuration</div>
+
+                <div class="form-group">
+                    <label class="form-label">Kubeconfig</label>
+                    <textarea class="form-textarea" id="kubeconfig_content" placeholder="Paste your kubeconfig YAML content here...">{{ kubeconfig_content }}</textarea>
+                    <div class="form-hint">Paste the full kubeconfig content for your RKE2 cluster</div>
+                </div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="btnSave">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                </svg>
+                Save Configuration
+            </button>
+        </form>
+    </div>
+
+    <script>
+        let fetchedNodes = [];
+        let fetchedTemplates = {};
+        let templatePerNode = {};
+
+        // Fetch nodes and templates from Proxmox
+        async function fetchProxmoxResources() {
+            const btn = document.getElementById('btnFetchNodes');
+            const infoMsg = document.getElementById('infoMsg');
+            const errorMsg = document.getElementById('errorMsg');
+            const nodesSection = document.getElementById('nodesSection');
+            const container = document.getElementById('nodesContainer');
+
+            errorMsg.style.display = 'none';
+            infoMsg.style.display = 'none';
+            btn.disabled = true;
+            btn.innerHTML = '<span class="loading-spinner"></span> Fetching...';
+
+            const endpoint = document.getElementById('proxmox_endpoint').value.trim();
+            const username = document.getElementById('proxmox_username').value.trim();
+            const password = document.getElementById('proxmox_password').value;
+
+            if (!endpoint || !username || !password) {
+                errorMsg.textContent = 'Please fill in Proxmox endpoint, username, and password first';
+                errorMsg.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Fetch Nodes & Templates';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/proxmox/resources', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        proxmox_endpoint: endpoint,
+                        proxmox_username: username,
+                        proxmox_password: password
+                    })
+                });
+
+                const result = await res.json();
+
+                if (result.error) {
+                    errorMsg.textContent = result.error;
+                    errorMsg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Fetch Nodes & Templates';
+                    return;
+                }
+
+                fetchedNodes = result.nodes || [];
+                fetchedTemplates = result.templates || {};
+                templatePerNode = {};
+
+                if (fetchedNodes.length === 0) {
+                    errorMsg.textContent = 'No nodes found in Proxmox';
+                    errorMsg.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Fetch Nodes & Templates';
+                    return;
+                }
+
+                // Build node template selection UI
+                container.innerHTML = '';
+
+                fetchedNodes.forEach(node => {
+                    const templates = fetchedTemplates[node.node] || [];
+                    const nodeId = `node_${node.node.replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+                    const group = document.createElement('div');
+                    group.className = 'node-template-group';
+
+                    const statusClass = node.status === 'online' ? '' : 'offline';
+                    group.innerHTML = `
+                        <h4>
+                            <span class="status-dot ${statusClass}"></span>
+                            ${node.node}
+                        </h4>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label">Template for this node</label>
+                            <select class="form-select" id="${nodeId}" data-node="${node.node}">
+                                <option value="">-- Select Template --</option>
+                                ${templates.map(t => `<option value="${t.vmid}">${t.name} (VMID: ${t.vmid})</option>`).join('')}
+                            </select>
+                        </div>
+                    `;
+
+                    container.appendChild(group);
+
+                    // Track selection
+                    const select = group.querySelector('select');
+                    select.addEventListener('change', function() {
+                        const nodeName = this.getAttribute('data-node');
+                        if (this.value) {
+                            templatePerNode[nodeName] = this.value;
+                        } else {
+                            delete templatePerNode[nodeName];
+                        }
+                    });
+                });
+
+                nodesSection.style.display = 'block';
+                infoMsg.textContent = `Found ${fetchedNodes.length} nodes. Select a template for each node.`;
+                infoMsg.style.display = 'block';
+
+            } catch (e) {
+                errorMsg.textContent = 'Error: ' + e;
+                errorMsg.style.display = 'block';
+            }
+
+            btn.disabled = false;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg> Fetch Nodes & Templates';
+        }
+
+        document.getElementById('btnFetchNodes').addEventListener('click', fetchProxmoxResources);
+
+        document.getElementById('setupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const btn = document.getElementById('btnSave');
+            const errorDiv = document.getElementById('errorMsg');
+            const successDiv = document.getElementById('successMsg');
+
+            errorDiv.style.display = 'none';
+            successDiv.style.display = 'none';
+            btn.disabled = true;
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Saving...';
+
+            const data = {
+                proxmox_endpoint: document.getElementById('proxmox_endpoint').value.trim(),
+                proxmox_username: document.getElementById('proxmox_username').value.trim(),
+                proxmox_password: document.getElementById('proxmox_password').value,
+                vm_password: document.getElementById('vm_password').value,
+                kubeconfig_content: document.getElementById('kubeconfig_content').value.trim(),
+                dashboard_password: document.getElementById('dashboard_password').value,
+                template_per_node: templatePerNode
+            };
+
+            if (!data.proxmox_endpoint || !data.kubeconfig_content) {
+                errorDiv.textContent = 'Proxmox endpoint and Kubeconfig are required';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Save Configuration';
+                return;
+            }
+
+            if (!data.proxmox_endpoint.includes('/api2/json')) {
+                errorDiv.textContent = 'Proxmox endpoint must end with /api2/json/';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Save Configuration';
+                return;
+            }
+
+            if (!data.vm_password) {
+                errorDiv.textContent = 'VM Root Password is required for cloud-init';
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Save Configuration';
+                return;
+            }
+
+            try {
+                const res = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await res.json();
+
+                if (result.success) {
+                    successDiv.textContent = 'Configuration saved! Redirecting to dashboard...';
+                    successDiv.style.display = 'block';
+                    setTimeout(() => { window.location.href = '/'; }, 1500);
+                } else {
+                    errorDiv.textContent = result.error || 'Failed to save configuration';
+                    errorDiv.style.display = 'block';
+                    btn.disabled = false;
+                    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Save Configuration';
+                }
+            } catch (e) {
+                errorDiv.textContent = 'Error: ' + e;
+                errorDiv.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg> Save Configuration';
+            }
+        });
+    </script>
+    <div style="position: fixed; bottom: 0; left: 0; right: 0; border-top: 1px solid rgba(255,255,255,0.05); padding: 16px; text-align: center; background: linear-gradient(90deg, rgba(80,10,30,0.7) 0%, rgba(80,10,30,0.7) 20%, rgba(0,50,100,0.7) 20%, rgba(0,50,100,0.7) 40%, rgba(80,10,30,0.7) 40%, rgba(80,10,30,0.7) 60%, rgba(0,50,100,0.7) 60%, rgba(0,50,100,0.7) 80%, rgba(80,10,30,0.7) 80%, rgba(80,10,30,0.7) 100%);">
+        <span style="color: #FFD700; font-size: 0.75rem; text-shadow: 0 1px 3px rgba(0,0,0,0.5);">Created by <a href="https://github.com/yoniys94" target="_blank" style="color: #FFD700; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; font-weight: 600;"><svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.003.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg><strong style="font-weight: 600;">YYS</strong></a></span>
+    </div>
+</body>
+</html>
