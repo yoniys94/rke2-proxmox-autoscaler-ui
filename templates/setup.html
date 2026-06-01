@@ -473,7 +473,8 @@
                 vm_password: document.getElementById('vm_password').value,
                 kubeconfig_content: document.getElementById('kubeconfig_content').value.trim(),
                 dashboard_password: document.getElementById('dashboard_password').value,
-                template_per_node: templatePerNode
+                template_per_node: templatePerNode,
+                nodes: fetchedNodes.map(n => n.node)
             };
 
             if (!data.proxmox_endpoint || !data.kubeconfig_content) {

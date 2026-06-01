@@ -125,6 +125,10 @@ def run_terraform(action="plan"):
             tf_env["TF_VAR_proxmox_password"] = env["PROXMOX_PASSWORD"]
         if env.get("VM_PASSWORD"):
             tf_env["TF_VAR_vm_password"] = env["VM_PASSWORD"]
+        if env.get("NODES"):
+            tf_env["TF_VAR_nodes"] = env["NODES"]
+        if env.get("TEMPLATE_PER_NODE"):
+            tf_env["TF_VAR_template_per_node"] = env["TEMPLATE_PER_NODE"]
 
         # Auto init if needed (idempotent, safe for existing state)
         init_result = subprocess.run(
@@ -414,6 +418,11 @@ def save_config():
         else:
             template_per_node_str = str(template_per_node)
 
+        # Save nodes list
+        import json
+        nodes_list = data.get("nodes", [])
+        nodes_str = json.dumps(nodes_list)
+
         # Save env
         env_data = {
             "PROXMOX_ENDPOINT": data["proxmox_endpoint"],
@@ -423,7 +432,8 @@ def save_config():
             "KUBECONFIG_PATH": KUBECONFIG_FILE,
             "DASHBOARD_TOKEN": token,
             "DASHBOARD_PASSWORD": data.get("dashboard_password", secrets.token_hex(8)),
-            "TEMPLATE_PER_NODE": template_per_node_str
+            "TEMPLATE_PER_NODE": template_per_node_str,
+            "NODES": nodes_str
         }
         save_env(env_data)
 
