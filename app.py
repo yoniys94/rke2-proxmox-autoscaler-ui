@@ -341,7 +341,7 @@ def proxmox_resources():
 
         # Extract host and port from endpoint
         host = endpoint.replace("https://", "").split(":")[0]
-        port = int(endpoint.split(":")[-1].replace("/api2/json", "").strip())
+        port = int(endpoint.split(":")[2].split("/")[0])
 
         proxmox = ProxmoxAPI(host, port=port, user=username, password=password, verify_ssl=False)
 
