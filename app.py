@@ -387,42 +387,47 @@ def proxmox_resources():
 
 @app.route("/api/config", methods=["POST"])
 def save_config():
-    data = request.get_json()
-    required = ["proxmox_endpoint", "proxmox_username", "proxmox_password", "kubeconfig_content", "vm_password"]
-    for field in required:
-        if not data.get(field):
-            return jsonify({"error": f"{field} is required"}), 400
+    try:
+        data = request.get_json(silent=True)
+        if data is None:
+            return jsonify({"error": "Invalid JSON in request body"}), 400
+        required = ["proxmox_endpoint", "proxmox_username", "proxmox_password", "kubeconfig_content", "vm_password"]
+        for field in required:
+            if not data.get(field):
+                return jsonify({"error": f"{field} is required"}), 400
 
-    # Write kubeconfig to file
-    with open(KUBECONFIG_FILE, "w") as f:
-        f.write(data["kubeconfig_content"])
+        # Write kubeconfig to file
+        with open(KUBECONFIG_FILE, "w") as f:
+            f.write(data["kubeconfig_content"])
 
-    # Generate a simple token if not exists
-    import secrets
-    import json
-    token = secrets.token_hex(32)
+        # Generate a simple token if not exists
+        import secrets
+        import json
+        token = secrets.token_hex(32)
 
-    # Handle template_per_node
-    template_per_node = data.get("template_per_node", {})
-    if isinstance(template_per_node, dict):
-        template_per_node_str = json.dumps(template_per_node)
-    else:
-        template_per_node_str = str(template_per_node)
+        # Handle template_per_node
+        template_per_node = data.get("template_per_node", {})
+        if isinstance(template_per_node, dict):
+            template_per_node_str = json.dumps(template_per_node)
+        else:
+            template_per_node_str = str(template_per_node)
 
-    # Save env
-    env_data = {
-        "PROXMOX_ENDPOINT": data["proxmox_endpoint"],
-        "PROXMOX_USERNAME": data["proxmox_username"],
-        "PROXMOX_PASSWORD": data["proxmox_password"],
-        "VM_PASSWORD": data["vm_password"],
-        "KUBECONFIG_PATH": KUBECONFIG_FILE,
-        "DASHBOARD_TOKEN": token,
-        "DASHBOARD_PASSWORD": data.get("dashboard_password", secrets.token_hex(8)),
-        "TEMPLATE_PER_NODE": template_per_node_str
-    }
-    save_env(env_data)
+        # Save env
+        env_data = {
+            "PROXMOX_ENDPOINT": data["proxmox_endpoint"],
+            "PROXMOX_USERNAME": data["proxmox_username"],
+            "PROXMOX_PASSWORD": data["proxmox_password"],
+            "VM_PASSWORD": data["vm_password"],
+            "KUBECONFIG_PATH": KUBECONFIG_FILE,
+            "DASHBOARD_TOKEN": token,
+            "DASHBOARD_PASSWORD": data.get("dashboard_password", secrets.token_hex(8)),
+            "TEMPLATE_PER_NODE": template_per_node_str
+        }
+        save_env(env_data)
 
-    return jsonify({"success": True, "message": "Configuration saved", "token": token})
+        return jsonify({"success": True, "message": "Configuration saved", "token": token})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 # ============ API ROUTES ============
 
