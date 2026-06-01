@@ -46,7 +46,7 @@ def save_env(data):
 def is_configured():
     env = load_env()
     proxmox_ok = bool(env.get("PROXMOX_ENDPOINT"))
-    kubeconfig_ok = os.path.exists(KUBECONFIG_FILE) and os.path.getsize(KUBECONFIG_FILE) > 0
+    kubeconfig_ok = os.path.isfile(KUBECONFIG_FILE) and os.path.getsize(KUBECONFIG_FILE) > 0
     return proxmox_ok and kubeconfig_ok
 
 def check_auth():
@@ -397,6 +397,8 @@ def save_config():
                 return jsonify({"error": f"{field} is required"}), 400
 
         # Write kubeconfig to file
+        if os.path.isdir(KUBECONFIG_FILE):
+            raise Exception(f"Cannot write to {KUBECONFIG_FILE}: is a directory")
         with open(KUBECONFIG_FILE, "w") as f:
             f.write(data["kubeconfig_content"])
 
