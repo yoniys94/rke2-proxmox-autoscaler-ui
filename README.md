@@ -27,10 +27,20 @@ git clone https://github.com/yoniys94/rke2-proxmox-autoscaler-ui.git
 cd rke2-proxmox-autoscaler-ui
 ```
 
-### 2. Create `.env` file dari contoh
+### 2. Create `.env` dan `kubeconfig` files
+
+**Penting**: Docker akan otomatis membuat directory jika file tidak ada. Pastikan file (bukan directory) dibuat sebelum start container.
 
 ```bash
-cp .env.example .env
+# Hapus jika ada (file atau directory)
+rm -rf .env kubeconfig .kubeconfig
+
+# Buat file kosong
+touch .env kubeconfig
+chmod 666 .env kubeconfig
+
+# Verify - harus muncul -rw-rw-r-- (regular file)
+ls -la .env kubeconfig
 ```
 
 ### 3. Start container
@@ -132,5 +142,18 @@ docker compose restart
 ```bash
 docker compose down
 docker compose build --no-cache
+docker compose up -d
+```
+
+### Error: "Is a directory: '/app/.env'" atau "/app/kubeconfig"
+
+Docker membuat directory kosong jika file tidak ada. Fix:
+
+```bash
+docker compose down
+rm -rf .env kubeconfig .kubeconfig
+touch .env kubeconfig
+chmod 666 .env kubeconfig
+ls -la .env kubeconfig  # verify file, bukan directory
 docker compose up -d
 ```
