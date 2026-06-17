@@ -2,6 +2,8 @@
 
 Dashboard untuk scaling worker node kluster Kubernetes (RKE2) di Proxmox. Fetch nodes/templates dinamis, setup wizard, node management (cordon/drain/delete), monitoring uptime, token auth dengan auto-logout. Credential di `.env`, tidak di-hardcode.
 
+![Dashboard](enaxple-dashboard.jpg)
+
 ## Features
 
 - Scale worker VM up/down via dashboard
