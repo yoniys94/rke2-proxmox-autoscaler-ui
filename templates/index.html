@@ -1106,6 +1106,18 @@
             box.className = 'kc-result';
             box.querySelector('pre').textContent = '';
         }
+        let kcBtnOrig = null;
+        function resetKcButtons() {
+            const saveBtn = document.getElementById('btnKcSave');
+            const testBtn = document.getElementById('btnKcTest');
+            if (!kcBtnOrig) {
+                kcBtnOrig = { save: saveBtn.innerHTML, test: testBtn.innerHTML };
+            }
+            saveBtn.innerHTML = kcBtnOrig.save;
+            testBtn.innerHTML = kcBtnOrig.test;
+            saveBtn.disabled = false;
+            testBtn.disabled = false;
+        }
         function handle401(res) {
             if (res.status === 401) {
                 authToken = '';
@@ -1122,6 +1134,7 @@
             const editor = document.getElementById('kubeconfigEditor');
             editor.value = '';
             clearKcResult();
+            resetKcButtons();
             overlay.style.display = 'flex';
             showKcResult('Loading current kubeconfig...', 'info');
             try {
