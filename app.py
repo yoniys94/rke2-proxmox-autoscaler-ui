@@ -3,6 +3,8 @@ import os
 import subprocess
 import re
 import yaml
+import tempfile
+import shutil
 from datetime import datetime, timezone
 
 app = Flask(__name__)
@@ -162,6 +164,55 @@ def get_terraform_status():
         return {"success": False, "workers": 0, "resources": []}
 
 # ============ K8S FUNCTIONS ============
+
+def validate_kubeconfig_content(content):
+    """Validate kubeconfig content parses as YAML and looks like a kubeconfig dict."""
+    if not content or not content.strip():
+        raise ValueError("kubeconfig content is empty")
+    try:
+        data = yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        raise ValueError(f"kubeconfig is not valid YAML: {e}")
+    if not isinstance(data, dict):
+        raise ValueError("kubeconfig must be a YAML mapping")
+    return data
+
+def test_kubeconfig(content):
+    """Validate kubeconfig against the cluster WITHOUT touching the live file.
+
+    Writes content to a tempfile, runs `kubectl get nodes`, then always cleans up.
+    Returns a dict with success/returncode/stdout/stderr.
+    """
+    tmp_path = None
+    try:
+        validate_kubeconfig_content(content)
+
+        fd, tmp_path = tempfile.mkstemp(prefix="kc_test_", suffix=".yaml")
+        with os.fdopen(fd, "w") as f:
+            f.write(content)
+
+        result = subprocess.run(
+            ["kubectl", "--kubeconfig", tmp_path, "get", "nodes", "--no-headers"],
+            capture_output=True, text=True, timeout=30
+        )
+        return {
+            "success": result.returncode == 0,
+            "returncode": result.returncode,
+            "stdout": result.stdout,
+            "stderr": result.stderr
+        }
+    except subprocess.TimeoutExpired:
+        return {"success": False, "returncode": -1, "stdout": "", "stderr": "Timeout: kubectl took too long"}
+    except ValueError as e:
+        return {"success": False, "returncode": -1, "stdout": "", "stderr": str(e)}
+    except Exception as e:
+        return {"success": False, "returncode": -1, "stdout": "", "stderr": str(e)}
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except Exception:
+                pass
 
 def get_k8s_nodes():
     try:
@@ -603,6 +654,61 @@ def k8s_cordon_drain_workers(worker_names):
 
     all_success = all(all(step["success"] for step in r["steps"]) for r in results)
     return {"success": all_success, "results": results}
+
+@app.route("/api/kubeconfig", methods=["GET"])
+@require_auth
+def get_kubeconfig():
+    """Return the current kubeconfig file content so it can be edited."""
+    if os.path.isdir(KUBECONFIG_FILE):
+        return jsonify({"error": f"{KUBECONFIG_FILE} is a directory"}), 400
+    if not os.path.isfile(KUBECONFIG_FILE) or os.path.getsize(KUBECONFIG_FILE) == 0:
+        return jsonify({"error": "Kubeconfig file not found", "content": ""}), 404
+    try:
+        with open(KUBECONFIG_FILE, "r") as f:
+            content = f.read()
+        return jsonify({"content": content})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route("/api/kubeconfig/test", methods=["POST"])
+@require_auth
+def test_kubeconfig_route():
+    """Validate pasted kubeconfig against the cluster without saving it."""
+    data = request.get_json(silent=True)
+    if data is None or not data.get("kubeconfig_content"):
+        return jsonify({"error": "kubeconfig_content is required"}), 400
+    result = test_kubeconfig(data["kubeconfig_content"])
+    return jsonify(result)
+
+@app.route("/api/kubeconfig/save", methods=["POST"])
+@require_auth
+def save_kubeconfig():
+    """Update the kubeconfig file. Backs up the previous file first."""
+    try:
+        data = request.get_json(silent=True)
+        if data is None or not data.get("kubeconfig_content"):
+            return jsonify({"error": "kubeconfig_content is required"}), 400
+
+        content = data["kubeconfig_content"]
+        try:
+            validate_kubeconfig_content(content)
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+        if os.path.isdir(KUBECONFIG_FILE):
+            return jsonify({"error": f"Cannot write to {KUBECONFIG_FILE}: is a directory"}), 400
+
+        backed_up = False
+        if os.path.isfile(KUBECONFIG_FILE) and os.path.getsize(KUBECONFIG_FILE) > 0:
+            shutil.copy2(KUBECONFIG_FILE, KUBECONFIG_FILE + ".bak")
+            backed_up = True
+
+        with open(KUBECONFIG_FILE, "w") as f:
+            f.write(content)
+
+        return jsonify({"success": True, "message": "Kubeconfig updated", "backed_up": backed_up})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/api/k8s/nodes", methods=["GET"])
 @require_auth

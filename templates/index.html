@@ -599,6 +599,118 @@
             font-size: 0.85rem;
             display: none;
         }
+
+        /* Edit Kubeconfig Modal */
+        #editKubeconfigOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: none;
+            justify-content: center;
+            align-items: flex-start;
+            z-index: 1000;
+            padding: 40px 24px;
+            overflow-y: auto;
+        }
+        .kc-modal {
+            background: linear-gradient(145deg, rgba(30,30,45,0.95) 0%, rgba(20,20,30,0.98) 100%);
+            border-radius: 24px;
+            padding: 36px;
+            border: 1px solid rgba(255,255,255,0.08);
+            width: 100%;
+            max-width: 720px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+        .kc-modal-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 6px;
+        }
+        .kc-modal-header svg { width: 24px; height: 24px; color: #60a5fa; }
+        .kc-modal-title { font-size: 1.3rem; font-weight: 700; color: #fff; }
+        .kc-modal-subtitle { color: #666; font-size: 0.85rem; margin-bottom: 20px; }
+        #kubeconfigEditor {
+            width: 100%;
+            min-height: 380px;
+            resize: vertical;
+            background: #18181b;
+            color: #e4e4e7;
+            border: 1px solid #3f3f46;
+            border-radius: 12px;
+            padding: 14px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            white-space: pre;
+            overflow-x: auto;
+            transition: all 0.2s;
+        }
+        #kubeconfigEditor:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 3px rgba(96,165,250,0.15);
+        }
+        .kc-result {
+            background: rgba(0,0,0,0.3);
+            border-radius: 12px;
+            padding: 14px;
+            margin-top: 14px;
+            max-height: 140px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.75rem;
+            display: none;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .kc-result.show { display: block; }
+        .kc-result pre { color: #a1a1aa; white-space: pre-wrap; word-wrap: break-word; }
+        .kc-result.success { border-color: rgba(34,197,94,0.3); }
+        .kc-result.success pre { color: #86efac; }
+        .kc-result.error { border-color: rgba(239,68,68,0.3); }
+        .kc-result.error pre { color: #fca5a5; }
+        .kc-result.info { border-color: rgba(96,165,250,0.3); }
+        .kc-result.info pre { color: #93c5fd; }
+        .kc-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .kc-btn {
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .kc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .kc-btn svg { width: 16px; height: 16px; }
+        .kc-btn.test { background: rgba(96,165,250,0.15); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
+        .kc-btn.test:hover:not(:disabled) { background: rgba(96,165,250,0.25); }
+        .kc-btn.save { background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%); color: #fff; box-shadow: 0 4px 15px rgba(96,165,250,0.3); }
+        .kc-btn.save:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(96,165,250,0.4); }
+        .kc-btn.cancel { background: rgba(255,255,255,0.05); color: #a1a1aa; border: 1px solid rgba(255,255,255,0.1); }
+        .kc-btn.cancel:hover:not(:disabled) { background: rgba(255,255,255,0.1); color: #fff; }
+        .loading-spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -617,6 +729,42 @@
             <input type="password" id="loginPassword" class="login-input" placeholder="••••••••">
             <button class="login-btn" onclick="doLogin()">Sign In</button>
             <div id="loginError" class="login-error"></div>
+        </div>
+    </div>
+
+    <!-- Edit Kubeconfig Overlay -->
+    <div id="editKubeconfigOverlay">
+        <div class="kc-modal">
+            <div class="kc-modal-header">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+                <span class="kc-modal-title">Edit Kubeconfig</span>
+            </div>
+            <div class="kc-modal-subtitle">Update the kubeconfig used by the dashboard. The previous file is backed up to <code style="color:#60a5fa;">kubeconfig.bak</code> on save.</div>
+            <textarea id="kubeconfigEditor" spellcheck="false" placeholder="Paste your kubeconfig YAML here..."></textarea>
+            <div id="kubeconfigTestResult" class="kc-result"><pre></pre></div>
+            <div class="kc-actions">
+                <button class="kc-btn test" id="btnKcTest" onclick="testKubeconfig()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22,4 12,14.01 9,11.01"/>
+                    </svg>
+                    Test Connection
+                </button>
+                <button class="kc-btn save" id="btnKcSave" onclick="saveKubeconfig()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17,21 17,13 7,13 7,21"/>
+                        <polyline points="7,3 7,8 15,8"/>
+                    </svg>
+                    Save
+                </button>
+                <button class="kc-btn cancel" onclick="closeEditKubeconfig()">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 
@@ -781,6 +929,12 @@
                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
                         </svg>
                     </button>
+                    <button class="btn-icon" onclick="openEditKubeconfig()" title="Edit Kubeconfig">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M12 20h9"/>
+                            <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                        </svg>
+                    </button>
                     <button class="btn-icon logout" onclick="doLogout()" title="Logout">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
                             <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
@@ -939,6 +1093,131 @@
             }).join('');
             document.getElementById('k8sReady').textContent = `Ready: ${ready}`;
             document.getElementById('k8sNotReady').textContent = `NotReady: ${notReady}`;
+        }
+
+        // ---- Edit Kubeconfig ----
+        function showKcResult(text, type) {
+            const box = document.getElementById('kubeconfigTestResult');
+            box.className = 'kc-result show ' + (type || 'info');
+            box.querySelector('pre').textContent = text;
+        }
+        function clearKcResult() {
+            const box = document.getElementById('kubeconfigTestResult');
+            box.className = 'kc-result';
+            box.querySelector('pre').textContent = '';
+        }
+        function handle401(res) {
+            if (res.status === 401) {
+                authToken = '';
+                localStorage.removeItem('authToken');
+                document.getElementById('loginOverlay').style.display = 'flex';
+                document.getElementById('editKubeconfigOverlay').style.display = 'none';
+                return true;
+            }
+            return false;
+        }
+
+        async function openEditKubeconfig() {
+            const overlay = document.getElementById('editKubeconfigOverlay');
+            const editor = document.getElementById('kubeconfigEditor');
+            editor.value = '';
+            clearKcResult();
+            overlay.style.display = 'flex';
+            showKcResult('Loading current kubeconfig...', 'info');
+            try {
+                const res = await fetch('/api/kubeconfig', {headers: getAuthHeaders()});
+                if (handle401(res)) return;
+                const data = await res.json();
+                if (res.status === 404) {
+                    editor.value = '';
+                    clearKcResult();
+                } else if (data.error) {
+                    showKcResult(data.error, 'error');
+                    editor.value = '';
+                } else {
+                    editor.value = data.content || '';
+                    clearKcResult();
+                }
+            } catch (e) {
+                showKcResult('Error: ' + e, 'error');
+            }
+        }
+
+        function closeEditKubeconfig() {
+            document.getElementById('editKubeconfigOverlay').style.display = 'none';
+            clearKcResult();
+        }
+
+        async function testKubeconfig() {
+            const editor = document.getElementById('kubeconfigEditor');
+            const btn = document.getElementById('btnKcTest');
+            const content = editor.value;
+            if (!content.trim()) {
+                showKcResult('kubeconfig is empty', 'error');
+                return;
+            }
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></span> Testing...';
+            try {
+                const res = await fetch('/api/kubeconfig/test', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({kubeconfig_content: content})
+                });
+                if (handle401(res)) { btn.disabled = false; btn.innerHTML = original; return; }
+                const data = await res.json();
+                if (data.error) {
+                    showKcResult(data.error, 'error');
+                } else if (data.success) {
+                    const nodeCount = (data.stdout || '').trim().split('\n').filter(l => l.trim()).length;
+                    showKcResult('✓ Connection successful — ' + nodeCount + ' node(s) found.\n\n' + (data.stdout || ''), 'success');
+                } else {
+                    showKcResult('✗ Connection failed.\n\n' + (data.stderr || data.stdout || ''), 'error');
+                }
+            } catch (e) {
+                showKcResult('Error: ' + e, 'error');
+            }
+            btn.disabled = false;
+            btn.innerHTML = original;
+        }
+
+        async function saveKubeconfig() {
+            const editor = document.getElementById('kubeconfigEditor');
+            const btn = document.getElementById('btnKcSave');
+            const content = editor.value;
+            if (!content.trim()) {
+                showKcResult('kubeconfig is empty', 'error');
+                return;
+            }
+            if (!confirm('Update kubeconfig?\n\nThe previous file will be backed up to kubeconfig.bak.')) return;
+            btn.disabled = true;
+            const original = btn.innerHTML;
+            btn.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border-width:2px;"></span> Saving...';
+            try {
+                const res = await fetch('/api/kubeconfig/save', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', ...getAuthHeaders()},
+                    body: JSON.stringify({kubeconfig_content: content})
+                });
+                if (handle401(res)) { btn.disabled = false; btn.innerHTML = original; return; }
+                const data = await res.json();
+                if (data.success) {
+                    showKcResult('✓ ' + (data.message || 'Kubeconfig updated') + (data.backed_up ? ' (previous backed up to kubeconfig.bak)' : ''), 'success');
+                    setTimeout(() => {
+                        closeEditKubeconfig();
+                        fetchStatus();
+                    }, 1500);
+                } else {
+                    showKcResult(data.error || 'Failed to save kubeconfig', 'error');
+                    btn.disabled = false;
+                    btn.innerHTML = original;
+                }
+            } catch (e) {
+                showKcResult('Error: ' + e, 'error');
+                btn.disabled = false;
+                btn.innerHTML = original;
+            }
         }
 
         async function changeWorker(delta) {
